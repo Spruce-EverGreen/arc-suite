@@ -46,22 +46,30 @@ function Calculator() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {mockBusinessProfile.businessName}
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Select services to get a custom quote
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">{mockBusinessProfile.contactEmail}</p>
-              <p className="text-sm text-gray-600">{mockBusinessProfile.contactPhone}</p>
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              ARC Suite - Service Calculator
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">
+              Build your custom quote in 3 easy steps
+            </p>
+            <div className="flex justify-center gap-8 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">1</span>
+                <span className="text-gray-700">Select Services</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">2</span>
+                <span className="text-gray-700">Choose Add-ons</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">3</span>
+                <span className="text-gray-700">Get Your Quote</span>
+              </div>
             </div>
           </div>
         </div>
@@ -97,10 +105,11 @@ function Calculator() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Services List */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Our Services</h2>
-              <p className="text-gray-600">
-                Select the services you're interested in. You can add optional extras for each service.
+            <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">📋 Available Services</h2>
+              <p className="text-gray-700 font-medium">
+                Click the <span className="bg-blue-600 text-white px-2 py-1 rounded text-sm">+</span> button on any service to add it to your quote. 
+                You can select multiple services and customize them with add-ons.
               </p>
             </div>
 
@@ -128,30 +137,28 @@ function Calculator() {
                 
                 <button
                   onClick={() => setShowQuoteForm(true)}
-                  className="w-full bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg shadow-md hover:shadow-lg"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-5 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-bold text-xl shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  Get Quote
+                  📄 Get Your Quote
                 </button>
+                <p className="text-center text-sm text-gray-600 mt-2">
+                  Free estimate • No commitment required
+                </p>
               </div>
             ) : (
-              <div className="bg-gray-100 border border-gray-200 rounded-lg p-6 text-center">
-                <svg
-                  className="w-16 h-16 text-gray-400 mx-auto mb-3"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  No services selected
+              <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-dashed border-blue-300 rounded-lg p-8 text-center">
+                <div className="text-6xl mb-4">👈</div>
+                <h3 className="text-xl font-bold text-gray-800 mb-3">
+                  Start Building Your Quote
                 </h3>
-                <p className="text-sm text-gray-600">
-                  Choose services from the list to see your estimated total and request a quote.
+                <p className="text-gray-700 mb-4 text-lg">
+                  Select services from the list on the left to see pricing and add to your quote.
                 </p>
+                <div className="bg-white rounded-lg p-4 inline-block shadow-sm">
+                  <p className="text-sm text-gray-600 font-medium">
+                    💡 Tip: Click the <span className="bg-blue-600 text-white px-2 py-0.5 rounded">+</span> button to add a service
+                  </p>
+                </div>
               </div>
             )}
           </div>
