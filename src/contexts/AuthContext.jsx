@@ -16,6 +16,12 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      // Demo mode - no authentication
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -31,16 +37,25 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signUp = async (email, password) => {
+    if (!supabase) {
+      return { data: null, error: { message: 'Demo mode - authentication not available' } };
+    }
     const { data, error } = await supabase.auth.signUp({ email, password });
     return { data, error };
   };
 
   const signIn = async (email, password) => {
+    if (!supabase) {
+      return { data: null, error: { message: 'Demo mode - authentication not available' } };
+    }
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     return { data, error };
   };
 
   const signOut = async () => {
+    if (!supabase) {
+      return { error: null };
+    }
     const { error } = await supabase.auth.signOut();
     return { error };
   };
