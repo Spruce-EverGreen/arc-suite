@@ -6,12 +6,17 @@ import AdminDashboard from './pages/AdminDashboard';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
 import BusinessProfile from './pages/BusinessProfile';
+import Calculator from './pages/Calculator';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          {/* Public calculator route */}
+          <Route path="/calculator" element={<Calculator />} />
+          
+          {/* Admin routes */}
           <Route path="/login" element={<Login />} />
           
           <Route
@@ -27,8 +32,8 @@ function App() {
             <Route path="profile" element={<BusinessProfile />} />
           </Route>
 
-          <Route path="/" element={<Navigate to="/admin" replace />} />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
+          <Route path="/" element={<Navigate to="/calculator" replace />} />
+          <Route path="*" element={<Navigate to="/calculator" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
