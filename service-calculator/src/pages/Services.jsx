@@ -1,26 +1,33 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, DollarSign, Briefcase } from 'lucide-react';
 import ServiceModal from '../components/ServiceModal';
+import { DEMO_BUSINESS, DEMO_SERVICES } from '../data/mockData';
 
 export default function Services() {
-  const { user } = useAuth();
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user, isDemoMode } = useAuth();
+  const [services, setServices] = useState(isDemoMode ? DEMO_SERVICES : []);
+  const [loading, setLoading] = useState(!isDemoMode);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  const [businessProfile, setBusinessProfile] = useState(null);
+  const [businessProfile, setBusinessProfile] = useState(isDemoMode ? DEMO_BUSINESS : null);
 
   useEffect(() => {
+    if (isDemoMode || !isSupabaseConfigured || !supabase) {
+      setBusinessProfile(DEMO_BUSINESS);
+      setServices(DEMO_SERVICES);
+      setLoading(false);
+      return;
+    }
     fetchBusinessProfile();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   useEffect(() => {
-    if (businessProfile) {
+    if (!isDemoMode && businessProfile && isSupabaseConfigured && supabase) {
       fetchServices();
     }
-  }, [businessProfile]);
+  }, [businessProfile, isDemoMode]);
 
   const fetchBusinessProfile = async () => {
     try {
@@ -56,6 +63,10 @@ export default function Services() {
   };
 
   const handleDelete = async (serviceId) => {
+    if (isDemoMode) {
+      alert('Demo mode: changes are not saved.');
+      return;
+    }
     if (!confirm('Are you sure you want to delete this service?')) return;
 
     try {
@@ -73,11 +84,19 @@ export default function Services() {
   };
 
   const handleEdit = (service) => {
+    if (isDemoMode) {
+      alert('Demo mode: editing is disabled. Connect Supabase to enable full functionality.');
+      return;
+    }
     setEditingService(service);
     setModalOpen(true);
   };
 
   const handleAddNew = () => {
+    if (isDemoMode) {
+      alert('Demo mode: adding services is disabled. Connect Supabase to enable full functionality.');
+      return;
+    }
     setEditingService(null);
     setModalOpen(true);
   };
@@ -88,7 +107,7 @@ export default function Services() {
     fetchServices();
   };
 
-  if (!businessProfile) {
+  if (!businessProfile && !isDemoMode) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
         <h3 className="font-semibold text-yellow-900 mb-2">Setup Required</h3>
@@ -111,6 +130,11 @@ export default function Services() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Services</h1>
           <p className="text-gray-600 mt-1">Manage your service offerings and pricing</p>
+          {isDemoMode && (
+            <span className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+              ⚡ Demo Mode — read only
+            </span>
+          )}
         </div>
         <button
           onClick={handleAddNew}
@@ -152,8 +176,8 @@ export default function Services() {
                     {service.name}
                   </h3>
                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${
-                    service.is_active 
-                      ? 'bg-green-100 text-green-800' 
+                    service.is_active
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
                     {service.is_active ? 'Active' : 'Inactive'}
@@ -182,26 +206,31 @@ export default function Services() {
               <div className="flex items-center gap-2 text-gray-900">
                 <DollarSign size={20} className="text-green-600" />
                 <span className="font-semibold text-lg">
-                  {service.pricing_model === 'range' && service.price_max
-                    ? `$${service.base_price} - $${service.price_max}`
-                    : service.pricing_model === 'hourly'
+                  {service.pricing_model === 'hourly'
                     ? `$${service.base_price}/hr`
-                    : `$${service.base_price}`
-                  }
+                    : `$${service.base_price}`}
                 </span>
                 <span className="text-sm text-gray-500 capitalize">
                   ({service.pricing_model})
                 </span>
               </div>
+
+              {service.addOns && service.addOns.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 font-medium mb-1">
+                    {service.addOns.length} add-on{service.addOns.length > 1 ? 's' : ''} available
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {modalOpen && (
+      {modalOpen && !isDemoMode && (
         <ServiceModal
           service={editingService}
-          businessId={businessProfile.id}
+          businessId={businessProfile?.id}
           onClose={handleModalClose}
         />
       )}

@@ -1,61 +1,83 @@
 # FOR SPRUCE - Integration Status & Next Steps
 
-## Current Status (2026-02-15 09:57 EST)
+## Current Status (2026-02-18 ~14:30 EST)
 
 ### ✅ What's Complete
-- **Database Schema** - Full Supabase SQL schema created by haiku-1
-- **Admin Panel** - React admin dashboard (auth, business profile, service management) by haiku-2
-- **Client Calculator** - Service selection UI with real-time pricing by haiku-3
-- **PDF Generation** - Quote PDF generation system by haiku-4
-- **Code Pushed to GitHub** - All components in main branch
+- **Database Schema** - Full Supabase SQL schema (`service-calculator/supabase-schema.sql`)
+- **Admin Panel** - React admin dashboard (auth, business profile, service management)
+- **Client Calculator** - `ServiceCalculator.jsx` component (polished, PDF-ready)
+- **PDF Generation** - `pdfGenerator.js` in `src/utils/`
+- **Integration** - All components wired into one unified app
+- **Demo Mode** - Full app runs WITHOUT Supabase (one-click demo login, mock data throughout)
+- **Builds clean** - `npm run build` passes with zero errors
+- **Dev server works** - `npm run dev` serves at http://localhost:5173
 
-### ❌ What's NOT Done
-- Components are NOT integrated into one unified app
-- Supabase backend not set up (no database live yet)
-- Environment variables not configured
-- Full flow NOT tested (signup → add service → client calculator → PDF)
-- No live demo available yet
+### ✅ Demo Flow (No Setup Required)
+1. `cd service-calculator && npm install && npm run dev`
+2. Visit http://localhost:5173
+3. Click **"Try Demo — One Click"**
+4. Admin panel loads with mock data (5 services, 12 quotes, business profile)
+5. Dashboard shows **"Preview Client Calculator"** button → opens calculator in new tab
+6. Client calculator: select services → add-ons → real-time pricing → "Get Quote" → enter name/email → **downloads PDF**
 
-## Integration Tasks Remaining
+### ❌ What's NOT Done (Post-Demo)
+- Supabase backend not set up (no real accounts/data)
+- Email delivery not implemented (Resend/SendGrid)
+- Real client calculator by businessId URL (`/calculator/:businessId`)
+- ServiceModal has Supabase calls (blocked in demo mode, needs wiring for real mode)
 
-### 1. Code Integration
-- [ ] Review all 4 component codebases
-- [ ] Merge admin panel + client calculator into unified app structure
-- [ ] Set up proper React Router routes
-- [ ] Integrate PDF generation into client flow
-- [ ] Resolve any dependency conflicts
+## To Run the Demo
 
-### 2. Backend Setup
-- [ ] Create Supabase project
-- [ ] Run `supabase-schema.sql` to create tables
-- [ ] Set up storage buckets (logos, PDFs)
-- [ ] Get Supabase API keys
-- [ ] Configure `.env` file
+```bash
+cd /Users/aiuser/.openclaw/workspace/projects/ARC_Suite/service-calculator
+npm install  # already done
+npm run dev
+# Visit http://localhost:5173
+# Click "Try Demo — One Click"
+```
 
-### 3. Testing
-- [ ] Test admin signup/login
-- [ ] Test adding services
-- [ ] Test client calculator with real data
-- [ ] Test PDF generation
-- [ ] Test end-to-end flow
+## To Connect Real Backend (Post-Demo)
 
-### 4. Documentation
-- [ ] Update README with setup instructions
-- [ ] Document environment variables needed
-- [ ] Create demo walkthrough
+1. Create Supabase project at supabase.com
+2. Run `supabase-schema.sql` in Supabase SQL editor
+3. Create storage buckets: `business-assets` (public), `pdfs` (private)
+4. Copy `.env.example` to `.env`, fill in URL + anon key
+5. Restart dev server
 
-## Timeline
+## Next Steps After Demo
 
-**Target:** 1-2 hours to complete integration + setup + testing
-**Demo ready:** ~11:00-12:00 EST
+1. **Supabase setup** - Get real backend working
+2. **Dynamic calculator URLs** - `/calculator/:businessId` loads real services from DB
+3. **Email delivery** - Send PDF quote to client email (Resend, free tier)
+4. **App #2** - Invoice Builder or Time Tracker
 
-## Notes
+## File Map
 
-- Rodney does NOT want Vercel deployment yet
-- Demo will run locally first
-- Components were built by 4 separate Haiku sub-agents in parallel
-- All code is in `/Users/aiuser/.openclaw/workspace/projects/ARC_Suite`
+```
+service-calculator/
+├── src/
+│   ├── App.jsx              ← Routes: /login, /admin/*, /calculator
+│   ├── contexts/
+│   │   └── AuthContext.jsx  ← Demo mode + Supabase auth
+│   ├── data/
+│   │   └── mockData.js      ← All mock data for demo mode
+│   ├── lib/
+│   │   └── supabase.js      ← Null-safe Supabase client
+│   ├── pages/
+│   │   ├── Login.jsx        ← "Try Demo" button + real auth form
+│   │   ├── Calculator.jsx   ← Public client-facing calculator
+│   │   ├── Dashboard.jsx    ← Admin dashboard (demo-safe)
+│   │   ├── Services.jsx     ← Services CRUD (demo-safe)
+│   │   └── BusinessProfile.jsx ← Profile editor (demo-safe)
+│   ├── components/
+│   │   └── ServiceCalculator.jsx ← Core calculator component (accepts props)
+│   └── utils/
+│       └── pdfGenerator.js  ← PDF quote generation
+├── .env.example
+└── supabase-schema.sql
+```
 
 ## Last Updated
 
-2026-02-15 09:57 EST by Spruce
+2026-02-18 ~14:30 EST by Spruce
+Status: **DEMO READY** ✅

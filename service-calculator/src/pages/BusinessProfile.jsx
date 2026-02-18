@@ -1,26 +1,41 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Building2, Upload, Save } from 'lucide-react';
+import { DEMO_BUSINESS } from '../data/mockData';
 
 export default function BusinessProfile() {
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    business_name: '',
-    contact_email: '',
-    contact_phone: '',
-    brand_color: '#007da5',
-    logo_url: '',
-  });
+  const { user, isDemoMode } = useAuth();
+  const [formData, setFormData] = useState(
+    isDemoMode
+      ? {
+          business_name: DEMO_BUSINESS.business_name,
+          contact_email: DEMO_BUSINESS.contact_email,
+          contact_phone: DEMO_BUSINESS.contact_phone,
+          brand_color: DEMO_BUSINESS.brand_color,
+          logo_url: '',
+        }
+      : {
+          business_name: '',
+          contact_email: '',
+          contact_phone: '',
+          brand_color: '#007da5',
+          logo_url: '',
+        }
+  );
   const [loading, setLoading] = useState(false);
-  const [fetchLoading, setFetchLoading] = useState(true);
+  const [fetchLoading, setFetchLoading] = useState(!isDemoMode);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [uploading, setUploading] = useState(false);
   const [profileId, setProfileId] = useState(null);
 
   useEffect(() => {
+    if (isDemoMode || !isSupabaseConfigured || !supabase) {
+      setFetchLoading(false);
+      return;
+    }
     fetchProfile();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   const fetchProfile = async () => {
     try {
@@ -57,6 +72,10 @@ export default function BusinessProfile() {
   };
 
   const handleLogoUpload = async (e) => {
+    if (isDemoMode) {
+      alert('Demo mode: file uploads are disabled.');
+      return;
+    }
     try {
       setUploading(true);
       setMessage({ type: '', text: '' });
@@ -104,6 +123,10 @@ export default function BusinessProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isDemoMode) {
+      setMessage({ type: 'success', text: '⚡ Demo mode: changes are shown but not saved.' });
+      return;
+    }
     setLoading(true);
     setMessage({ type: '', text: '' });
 
@@ -158,6 +181,11 @@ export default function BusinessProfile() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Business Profile</h1>
           <p className="text-gray-600 mt-1">Configure your business information and branding</p>
+          {isDemoMode && (
+            <span className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+              ⚡ Demo Mode — showing sample data
+            </span>
+          )}
         </div>
       </div>
 

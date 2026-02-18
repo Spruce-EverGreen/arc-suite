@@ -1,29 +1,34 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Building2, FileText, TrendingUp } from 'lucide-react';
+import { Briefcase, Building2, FileText, TrendingUp, ExternalLink } from 'lucide-react';
+import { DEMO_STATS } from '../data/mockData';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isDemoMode } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState(isDemoMode ? DEMO_STATS : {
     servicesCount: 0,
     activeServicesCount: 0,
     quotesCount: 0,
     hasProfile: false,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isDemoMode);
 
   useEffect(() => {
+    if (isDemoMode || !isSupabaseConfigured || !supabase) {
+      setStats(DEMO_STATS);
+      setLoading(false);
+      return;
+    }
     fetchStats();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
 
-      // Get business profile
       const { data: profile } = await supabase
         .from('business_profiles')
         .select('id')
@@ -35,20 +40,17 @@ export default function Dashboard() {
         return;
       }
 
-      // Get services count
       const { count: servicesCount } = await supabase
         .from('services')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', profile.id);
 
-      // Get active services count
       const { count: activeServicesCount } = await supabase
         .from('services')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', profile.id)
         .eq('is_active', true);
 
-      // Get quotes count
       const { count: quotesCount } = await supabase
         .from('quotes')
         .select('*', { count: 'exact', head: true })
@@ -110,10 +112,19 @@ export default function Dashboard() {
     <div className="max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back! Here's an overview of your service calculator.</p>
+        <p className="text-gray-600 mt-1">
+          {isDemoMode
+            ? 'Demo mode — showing sample data. Connect Supabase for real accounts.'
+            : "Welcome back! Here's an overview of your service calculator."}
+        </p>
+        {isDemoMode && (
+          <span className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+            ⚡ Demo Mode
+          </span>
+        )}
       </div>
 
-      {!stats.hasProfile && (
+      {!stats.hasProfile && !isDemoMode && (
         <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <h3 className="font-semibold text-yellow-900 mb-2">🚀 Get Started</h3>
           <p className="text-yellow-700 mb-4">
@@ -166,6 +177,13 @@ export default function Dashboard() {
               <Building2 size={20} />
               Edit Business Profile
             </button>
+            <button
+              onClick={() => window.open('/calculator', '_blank')}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition text-left font-medium"
+            >
+              <ExternalLink size={20} />
+              Preview Client Calculator
+            </button>
           </div>
         </div>
 
@@ -192,7 +210,7 @@ export default function Dashboard() {
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-semibold">
                 3
               </span>
-              <span>Share your calculator with clients</span>
+              <span>Share your calculator link with clients</span>
             </li>
           </ol>
         </div>
