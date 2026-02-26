@@ -1,94 +1,76 @@
-// Mock data for demo mode (no Supabase required)
-
+// Demo user and business data
 export const DEMO_USER = {
-  id: 'demo-user-001',
-  email: 'demo@arcsuite.io',
-  user_metadata: { full_name: 'Demo Business' },
+  id: 'demo-user-1',
+  email: 'demo@arclabs.io',
+  name: 'Demo User'
 };
 
 export const DEMO_BUSINESS = {
-  id: 'demo-biz-001',
-  user_id: 'demo-user-001',
-  business_name: 'Acme Services Co.',
-  contact_email: 'hello@acmeservices.com',
-  contact_phone: '(305) 555-0123',
-  brand_color: '#007da5',
-  tax_rate: 7,
-  website_url: 'https://acmeservices.com',
+  id: 'demo-biz-1',
+  name: 'Pro Cleaning Services',
+  email: 'contact@procleaning.demo',
+  phone: '(555) 123-4567',
+  address: '123 Main St, Miami, FL 33101',
+  logo_url: null
 };
 
 export const DEMO_SERVICES = [
   {
     id: 'svc-1',
-    business_id: 'demo-biz-001',
-    name: 'Website Design & Development',
-    description: 'Custom website built with modern tech. Fast, mobile-first, and SEO-ready.',
-    base_price: 2500,
-    pricing_model: 'fixed',
+    name: 'Standard Cleaning',
+    description: 'Basic cleaning for homes and apartments',
+    base_price: 120,
+    price_unit: 'job',
     is_active: true,
-    addOns: [
-      { id: 'ao-1', name: 'E-commerce Integration', price: 1500 },
-      { id: 'ao-2', name: 'SEO Optimization Package', price: 500 },
-      { id: 'ao-3', name: 'CMS Setup', price: 800 },
-    ],
+    add_ons: [
+      { id: 'ao-1', name: 'Inside Fridge', price: 25 },
+      { id: 'ao-2', name: 'Inside Oven', price: 30 },
+      { id: 'ao-3', name: 'Window Cleaning', price: 8 }
+    ]
   },
   {
     id: 'svc-2',
-    business_id: 'demo-biz-001',
-    name: 'Monthly Maintenance',
-    description: 'Keep your site secure, updated, and running smooth. Includes uptime monitoring.',
-    base_price: 150,
-    pricing_model: 'hourly',
+    name: 'Deep Cleaning',
+    description: 'Thorough cleaning including baseboards, vents, and detailed work',
+    base_price: 0.15,
+    price_unit: 'sqft',
     is_active: true,
-    addOns: [
-      { id: 'ao-4', name: 'Priority Support (24hr)', price: 75 },
-      { id: 'ao-5', name: 'Monthly Analytics Report', price: 50 },
-    ],
+    add_ons: [
+      { id: 'ao-4', name: 'Carpet Shampooing', price: 75 },
+      { id: 'ao-5', name: 'Tile & Grout Scrub', price: 60 }
+    ]
   },
   {
     id: 'svc-3',
-    business_id: 'demo-biz-001',
-    name: 'Brand Identity Package',
-    description: 'Logo, color palette, typography, and brand guidelines — everything you need.',
-    base_price: 1200,
-    pricing_model: 'fixed',
+    name: 'Move-In/Move-Out',
+    description: 'Complete cleaning for property transitions',
+    base_price: 250,
+    price_unit: 'job',
     is_active: true,
-    addOns: [
-      { id: 'ao-6', name: 'Business Card Design', price: 150 },
-      { id: 'ao-7', name: 'Social Media Kit', price: 300 },
-    ],
+    add_ons: [
+      { id: 'ao-6', name: 'Garage Cleaning', price: 50 },
+      { id: 'ao-7', name: 'Exterior Windows', price: 100 }
+    ]
   },
   {
     id: 'svc-4',
-    business_id: 'demo-biz-001',
-    name: 'Digital Marketing Strategy',
-    description: 'Google Ads, Meta Ads, and content strategy. Built for ROI.',
-    base_price: 200,
-    pricing_model: 'hourly',
+    name: 'Hourly Labor',
+    description: 'General labor at hourly rate',
+    base_price: 45,
+    price_unit: 'hour',
     is_active: true,
-    addOns: [
-      { id: 'ao-8', name: 'Monthly Social Media Management', price: 800 },
-      { id: 'ao-9', name: 'Email Campaign (per campaign)', price: 600 },
-    ],
+    add_ons: []
   },
   {
     id: 'svc-5',
-    business_id: 'demo-biz-001',
-    name: 'IT Support & Consulting',
-    description: 'Remote IT support, network setup, security audits, and tech consulting.',
-    base_price: 125,
-    pricing_model: 'hourly',
+    name: 'TV Mounting',
+    description: 'Professional TV installation',
+    base_price: 100,
+    price_unit: 'tv',
     is_active: true,
-    addOns: [
-      { id: 'ao-10', name: 'On-site Visit', price: 200 },
-      { id: 'ao-11', name: 'Security Audit Report', price: 500 },
-    ],
-  },
+    add_ons: [
+      { id: 'ao-10', name: 'Cord Concealment', price: 50 },
+      { id: 'ao-11', name: 'Sound Bar Install', price: 35 }
+    ]
+  }
 ];
-
-export const DEMO_STATS = {
-  servicesCount: 5,
-  activeServicesCount: 5,
-  quotesCount: 12,
-  hasProfile: true,
-};

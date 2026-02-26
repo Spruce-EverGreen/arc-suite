@@ -1,220 +1,225 @@
 import { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Briefcase, Building2, FileText, TrendingUp, ExternalLink } from 'lucide-react';
-import { DEMO_STATS } from '../data/mockData';
+import Layout from '../components/Layout';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { DEMO_SERVICES } from '../data/mockData';
+
+const DEMO_QUOTES = [
+  { id: 'q-1', invoice_number: '20260219-A1B2', client_name: 'John Smith', service_name: 'Deep Cleaning', total: 450, status: 'pending', created_at: new Date().toISOString() },
+  { id: 'q-2', invoice_number: '20260218-C3D4', client_name: 'Sarah Johnson', service_name: 'Standard Cleaning', total: 350, status: 'paid', created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 'q-3', invoice_number: '20260217-E5F6', client_name: 'Mike Wilson', service_name: 'Move-Out Clean', total: 275, status: 'pending', created_at: new Date(Date.now() - 172800000).toISOString() },
+];
 
 export default function Dashboard() {
-  const { user, isDemoMode } = useAuth();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState(isDemoMode ? DEMO_STATS : {
-    servicesCount: 0,
-    activeServicesCount: 0,
-    quotesCount: 0,
-    hasProfile: false,
-  });
-  const [loading, setLoading] = useState(!isDemoMode);
+  const { business, isDemo, loading: authLoading } = useAuth();
+  const [services, setServices] = useState([]);
+  const [quotes, setQuotes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isDemoMode || !isSupabaseConfigured || !supabase) {
-      setStats(DEMO_STATS);
-      setLoading(false);
-      return;
-    }
-    fetchStats();
-  }, [user, isDemoMode]);
-
-  const fetchStats = async () => {
-    try {
-      setLoading(true);
-
-      const { data: profile } = await supabase
-        .from('business_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile) {
-        setStats({ servicesCount: 0, activeServicesCount: 0, quotesCount: 0, hasProfile: false });
+    async function fetchData() {
+      if (isDemo) {
+        setServices(DEMO_SERVICES);
+        setQuotes(DEMO_QUOTES);
+        setLoading(false);
         return;
       }
 
-      const { count: servicesCount } = await supabase
-        .from('services')
-        .select('*', { count: 'exact', head: true })
-        .eq('business_id', profile.id);
+      if (!business?.id) {
+        setServices([]);
+        setQuotes([]);
+        setLoading(false);
+        return;
+      }
 
-      const { count: activeServicesCount } = await supabase
-        .from('services')
-        .select('*', { count: 'exact', head: true })
-        .eq('business_id', profile.id)
-        .eq('is_active', true);
+      try {
+        const [servicesRes, quotesRes] = await Promise.all([
+          supabase.from('services').select('*').eq('business_id', business.id),
+          supabase.from('quotes').select('*').eq('business_id', business.id)
+        ]);
 
-      const { count: quotesCount } = await supabase
-        .from('quotes')
-        .select('*', { count: 'exact', head: true })
-        .eq('business_id', profile.id);
+        setServices(servicesRes.data || []);
+        setQuotes(quotesRes.data || []);
+      } catch (err) {
+        console.error('Error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-      setStats({
-        servicesCount: servicesCount || 0,
-        activeServicesCount: activeServicesCount || 0,
-        quotesCount: quotesCount || 0,
-        hasProfile: true,
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setLoading(false);
+    if (!authLoading) fetchData();
+  }, [business?.id, isDemo, authLoading]);
+
+  const activeServices = services.filter(s => s.is_active).length;
+  const pendingQuotes = quotes.filter(q => q.status === 'pending' || !q.status);
+  const paidQuotes = quotes.filter(q => q.status === 'paid');
+  const pendingTotal = pendingQuotes.reduce((sum, q) => sum + (parseFloat(q.total) || 0), 0);
+  const paidTotal = paidQuotes.reduce((sum, q) => sum + (parseFloat(q.total) || 0), 0);
+
+  const markAsPaid = async (quoteId) => {
+    if (isDemo) {
+      setQuotes(quotes.map(q => q.id === quoteId ? { ...q, status: 'paid' } : q));
+      return;
+    }
+    try {
+      await supabase.from('quotes').update({ status: 'paid' }).eq('id', quoteId);
+      setQuotes(quotes.map(q => q.id === quoteId ? { ...q, status: 'paid' } : q));
+    } catch (err) {
+      console.error('Error updating quote:', err);
     }
   };
 
-  const statCards = [
-    {
-      icon: Briefcase,
-      label: 'Total Services',
-      value: stats.servicesCount,
-      color: 'blue',
-      action: () => navigate('/admin/services'),
-    },
-    {
-      icon: TrendingUp,
-      label: 'Active Services',
-      value: stats.activeServicesCount,
-      color: 'green',
-      action: () => navigate('/admin/services'),
-    },
-    {
-      icon: FileText,
-      label: 'Quotes Generated',
-      value: stats.quotesCount,
-      color: 'purple',
-    },
-    {
-      icon: Building2,
-      label: 'Business Profile',
-      value: stats.hasProfile ? '✓' : '✗',
-      color: stats.hasProfile ? 'green' : 'red',
-      action: () => navigate('/admin/profile'),
-    },
-  ];
-
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="text-gray-600 mt-4">Loading dashboard...</p>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="glass-pill px-8 py-4">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!business && !isDemo) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+          <div className="title-pill">Welcome to ARC Labs</div>
+          <p className="text-muted">Set up your business to get started</p>
+          <a href="/profile" className="btn-arc">Setup Business</a>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">
-          {isDemoMode
-            ? 'Demo mode — showing sample data. Connect Supabase for real accounts.'
-            : "Welcome back! Here's an overview of your service calculator."}
-        </p>
-        {isDemoMode && (
-          <span className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-            ⚡ Demo Mode
-          </span>
-        )}
-      </div>
+    <Layout>
+      <div className="space-y-8 max-w-4xl">
+        {/* Page Title */}
+        <div className="title-pill">DASHBOARD</div>
 
-      {!stats.hasProfile && !isDemoMode && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h3 className="font-semibold text-yellow-900 mb-2">🚀 Get Started</h3>
-          <p className="text-yellow-700 mb-4">
-            Complete your business profile to start using the service calculator.
-          </p>
-          <button
-            onClick={() => navigate('/admin/profile')}
-            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition font-medium"
-          >
-            Set Up Business Profile
-          </button>
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="stat-card">
+            <span className="stat-label">Active Services</span>
+            <span className="stat-value">{activeServices}</span>
+          </div>
+          
+          <div className="stat-card">
+            <span className="stat-label">Pending</span>
+            <span className="stat-value text-amber-400">${pendingTotal.toLocaleString()}</span>
+          </div>
+          
+          <div className="stat-card">
+            <span className="stat-label">Collected</span>
+            <span className="stat-value text-[var(--success)]">${paidTotal.toLocaleString()}</span>
+          </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statCards.map((card, index) => (
-          <div
-            key={index}
-            onClick={card.action}
-            className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${
-              card.action ? 'cursor-pointer hover:shadow-md transition' : ''
-            }`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-lg bg-${card.color}-100`}>
-                <card.icon className={`text-${card.color}-600`} size={24} />
-              </div>
+        {/* Pending Invoices Section */}
+        <div className="glass-section">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+              Pending Invoices
+            </h2>
+            <span className="text-sm text-muted">{pendingQuotes.length} pending</span>
+          </div>
+          
+          {pendingQuotes.length === 0 ? (
+            <p className="text-muted text-center py-6">No pending invoices 🎉</p>
+          ) : (
+            <div className="space-y-3">
+              {pendingQuotes.map((quote) => (
+                <div 
+                  key={quote.id} 
+                  className="flex items-center justify-between p-4 rounded-xl bg-[var(--glass)] border border-[var(--glass-border)]"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{quote.client_name || 'Customer'}</span>
+                      <span className="text-xs text-subtle">#{quote.invoice_number}</span>
+                    </div>
+                    <p className="text-sm text-muted mt-1">{quote.service_name || 'Service'}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-semibold text-lg">${parseFloat(quote.total || 0).toLocaleString()}</span>
+                    <button 
+                      onClick={() => markAsPaid(quote.id)}
+                      className="btn-ghost text-sm text-[var(--success)]"
+                    >
+                      Mark Paid
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <h3 className="text-gray-600 text-sm font-medium mb-1">{card.label}</h3>
-            <p className="text-3xl font-bold text-gray-900">{card.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('/admin/services')}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition text-left font-medium"
-            >
-              <Briefcase size={20} />
-              Manage Services
-            </button>
-            <button
-              onClick={() => navigate('/admin/profile')}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition text-left font-medium"
-            >
-              <Building2 size={20} />
-              Edit Business Profile
-            </button>
-            <button
-              onClick={() => window.open('/calculator', '_blank')}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition text-left font-medium"
-            >
-              <ExternalLink size={20} />
-              Preview Client Calculator
-            </button>
-          </div>
+          )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Getting Started</h2>
-          <ol className="space-y-3 text-gray-700">
-            <li className="flex items-start gap-3">
-              <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold ${
-                stats.hasProfile ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-              }`}>
-                1
-              </span>
-              <span>Set up your business profile</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-semibold ${
-                stats.servicesCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-              }`}>
-                2
-              </span>
-              <span>Add your services and pricing</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center text-sm font-semibold">
-                3
-              </span>
-              <span>Share your calculator link with clients</span>
-            </li>
-          </ol>
+        {/* Recent Paid */}
+        {paidQuotes.length > 0 && (
+          <div className="glass-section">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[var(--success)]"></span>
+                Recently Paid
+              </h2>
+              <span className="text-sm text-muted">{paidQuotes.length} paid</span>
+            </div>
+            
+            <div className="space-y-2">
+              {paidQuotes.slice(0, 3).map((quote) => (
+                <div 
+                  key={quote.id} 
+                  className="flex items-center justify-between py-2 border-b border-[var(--glass-border)] last:border-0"
+                >
+                  <div>
+                    <span className="text-muted">{quote.client_name || 'Customer'}</span>
+                    <span className="text-xs text-subtle ml-2">#{quote.invoice_number}</span>
+                  </div>
+                  <span className="font-medium text-[var(--success)]">${parseFloat(quote.total || 0).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Share Calculator Section */}
+        {business?.id && !isDemo && (
+          <div className="glass-section">
+            <h2 className="font-semibold text-lg mb-4">Share Your Calculator</h2>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <input 
+                type="text" 
+                readOnly 
+                value={`${window.location.origin}/calculator?b=${business.id}`}
+                className="input-glass flex-1 text-sm"
+              />
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/calculator?b=${business.id}`);
+                }}
+                className="btn-pill whitespace-nowrap"
+              >
+                Copy Link
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <a 
+            href={business?.id ? `/calculator?b=${business.id}` : '/calculator'} 
+            className="btn-arc"
+          >
+            Open Calculator
+          </a>
+          <a href="/services" className="btn-pill">
+            Manage Services
+          </a>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }

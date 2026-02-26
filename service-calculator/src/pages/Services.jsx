@@ -1,239 +1,384 @@
 import { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { Plus, Edit2, Trash2, DollarSign, Briefcase } from 'lucide-react';
-import ServiceModal from '../components/ServiceModal';
-import { DEMO_BUSINESS, DEMO_SERVICES } from '../data/mockData';
+import { Link } from 'react-router-dom';
+import Layout from '../components/Layout';
+import { useAuth } from '../context/AuthContext';
+import { getServices, createService, updateService, deleteService } from '../lib/supabase';
+import { DEMO_SERVICES } from '../data/mockData';
 
 export default function Services() {
-  const { user, isDemoMode } = useAuth();
-  const [services, setServices] = useState(isDemoMode ? DEMO_SERVICES : []);
-  const [loading, setLoading] = useState(!isDemoMode);
-  const [modalOpen, setModalOpen] = useState(false);
+  const { business, isDemo } = useAuth();
+  
+  // Check if business profile exists (not needed in demo mode)
+  const hasBusinessProfile = isDemo || !!business;
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
   const [editingService, setEditingService] = useState(null);
-  const [businessProfile, setBusinessProfile] = useState(isDemoMode ? DEMO_BUSINESS : null);
+  const [saving, setSaving] = useState(false);
 
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    base_price: '',
+    price_unit: 'job', // e.g., "hour", "sqft", "tv install", "job"
+    is_active: true
+  });
+
+  // Load services
   useEffect(() => {
-    if (isDemoMode || !isSupabaseConfigured || !supabase) {
-      setBusinessProfile(DEMO_BUSINESS);
-      setServices(DEMO_SERVICES);
+    const loadServices = async () => {
+      if (isDemo) {
+        setServices(DEMO_SERVICES);
+        setLoading(false);
+        return;
+      }
+
+      if (business?.id) {
+        const { data, error } = await getServices(business.id);
+        if (!error && data) {
+          setServices(data);
+        }
+      }
       setLoading(false);
+    };
+
+    loadServices();
+  }, [business, isDemo]);
+
+  const toggleActive = async (service) => {
+    if (isDemo) {
+      setServices(services.map(s => 
+        s.id === service.id ? { ...s, is_active: !s.is_active } : s
+      ));
       return;
     }
-    fetchBusinessProfile();
-  }, [user, isDemoMode]);
 
-  useEffect(() => {
-    if (!isDemoMode && businessProfile && isSupabaseConfigured && supabase) {
-      fetchServices();
-    }
-  }, [businessProfile, isDemoMode]);
-
-  const fetchBusinessProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('business_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error;
-      setBusinessProfile(data);
-    } catch (error) {
-      console.error('Error fetching business profile:', error);
+    const { data, error } = await updateService(service.id, { is_active: !service.is_active });
+    if (!error && data) {
+      setServices(services.map(s => s.id === service.id ? data : s));
     }
   };
 
-  const fetchServices = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('business_id', businessProfile.id)
-        .order('created_at', { ascending: false });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
 
-      if (error) throw error;
-      setServices(data || []);
-    } catch (error) {
-      console.error('Error fetching services:', error);
+    const serviceData = {
+      name: formData.name,
+      description: formData.description || '',
+      base_price: parseFloat(formData.base_price),
+      price_unit: formData.price_unit.toLowerCase().trim(),
+      is_active: formData.is_active
+    };
+
+    if (isDemo) {
+      if (editingService) {
+        setServices(services.map(s => 
+          s.id === editingService.id ? { ...s, ...serviceData, add_ons: s.add_ons } : s
+        ));
+      } else {
+        setServices([...services, { 
+          id: Date.now(), 
+          ...serviceData,
+          add_ons: [] 
+        }]);
+      }
+      closeModal();
+      setSaving(false);
+      return;
+    }
+
+    try {
+      if (editingService) {
+        const { data, error } = await updateService(editingService.id, serviceData);
+        if (error) throw error;
+        setServices(services.map(s => s.id === editingService.id ? { ...data, add_ons: s.add_ons } : s));
+      } else {
+        if (!business?.id) {
+          throw new Error('Business profile required. Please set up your profile first.');
+        }
+        const { data, error } = await createService({
+          ...serviceData,
+          business_id: business.id
+        });
+        if (error) throw error;
+        setServices([...services, { ...data, add_ons: [] }]);
+      }
+      closeModal();
+    } catch (err) {
+      alert('Error saving service: ' + err.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (serviceId) => {
-    if (isDemoMode) {
-      alert('Demo mode: changes are not saved.');
+  const handleDelete = async (service) => {
+    if (!confirm('Delete this service?')) return;
+
+    if (isDemo) {
+      setServices(services.filter(s => s.id !== service.id));
       return;
     }
-    if (!confirm('Are you sure you want to delete this service?')) return;
 
-    try {
-      const { error } = await supabase
-        .from('services')
-        .delete()
-        .eq('id', serviceId);
-
-      if (error) throw error;
-      fetchServices();
-    } catch (error) {
-      console.error('Error deleting service:', error);
-      alert('Failed to delete service');
+    const { error } = await deleteService(service.id);
+    if (!error) {
+      setServices(services.filter(s => s.id !== service.id));
     }
   };
 
-  const handleEdit = (service) => {
-    if (isDemoMode) {
-      alert('Demo mode: editing is disabled. Connect Supabase to enable full functionality.');
-      return;
-    }
+  const openEdit = (service) => {
     setEditingService(service);
-    setModalOpen(true);
+    setFormData({
+      name: service.name,
+      description: service.description || '',
+      base_price: service.base_price.toString(),
+      price_unit: service.price_unit || 'job',
+      is_active: service.is_active
+    });
+    setShowModal(true);
   };
 
-  const handleAddNew = () => {
-    if (isDemoMode) {
-      alert('Demo mode: adding services is disabled. Connect Supabase to enable full functionality.');
-      return;
-    }
+  const closeModal = () => {
+    setShowModal(false);
     setEditingService(null);
-    setModalOpen(true);
+    setFormData({
+      name: '',
+      description: '',
+      base_price: '',
+      price_unit: 'job',
+      is_active: true
+    });
   };
 
-  const handleModalClose = () => {
-    setModalOpen(false);
-    setEditingService(null);
-    fetchServices();
+  const formatPrice = (service) => {
+    const price = service.base_price;
+    const unit = service.price_unit || 'job';
+    if (unit === 'job') return `$${price}`;
+    return `$${price} / ${unit}`;
   };
 
-  if (!businessProfile && !isDemoMode) {
+  if (loading) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-        <h3 className="font-semibold text-yellow-900 mb-2">Setup Required</h3>
-        <p className="text-yellow-700 mb-4">
-          Please complete your business profile before adding services.
-        </p>
-        <a
-          href="/admin/profile"
-          className="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition"
-        >
-          Go to Business Profile
-        </a>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted">Loading services...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show setup prompt if no business profile (and not in demo mode)
+  if (!hasBusinessProfile) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold heading-glow">Services</h1>
+            <p className="text-muted">Manage your service offerings</p>
+          </div>
+          <div className="glass-static p-12 text-center">
+            <svg className="w-16 h-16 mx-auto text-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <h2 className="text-xl font-semibold mb-2">Business Profile Required</h2>
+            <p className="text-muted mb-6">Please set up your business profile first to manage services.</p>
+            <Link to="/profile" className="btn-arc inline-flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Set Up Profile
+            </Link>
+          </div>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="max-w-7xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Services</h1>
-          <p className="text-gray-600 mt-1">Manage your service offerings and pricing</p>
-          {isDemoMode && (
-            <span className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-              ⚡ Demo Mode — read only
-            </span>
-          )}
-        </div>
-        <button
-          onClick={handleAddNew}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
-        >
-          <Plus size={20} />
-          Add Service
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Loading services...</p>
-        </div>
-      ) : services.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <Briefcase size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No services yet</h3>
-          <p className="text-gray-600 mb-6">Get started by adding your first service</p>
-          <button
-            onClick={handleAddNew}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
-          >
-            <Plus size={20} />
-            Add Your First Service
+    <Layout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold heading-glow">Services</h1>
+            <p className="text-muted">
+              {isDemo && <span className="text-amber-400">[Demo Mode] </span>}
+              Manage your service offerings
+            </p>
+          </div>
+          <button className="btn-arc flex items-center gap-2" onClick={() => setShowModal(true)}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Service
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((service) => (
-            <div
-              key={service.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    {service.name}
-                  </h3>
-                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${
-                    service.is_active
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {service.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(service)}
-                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(service.id)}
-                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
 
-              <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                {service.description}
-              </p>
-
-              <div className="flex items-center gap-2 text-gray-900">
-                <DollarSign size={20} className="text-green-600" />
-                <span className="font-semibold text-lg">
-                  {service.pricing_model === 'hourly'
-                    ? `$${service.base_price}/hr`
-                    : `$${service.base_price}`}
-                </span>
-                <span className="text-sm text-gray-500 capitalize">
-                  ({service.pricing_model})
-                </span>
-              </div>
-
-              {service.addOns && service.addOns.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 font-medium mb-1">
-                    {service.addOns.length} add-on{service.addOns.length > 1 ? 's' : ''} available
-                  </p>
-                </div>
-              )}
+        {/* Services Table */}
+        <div className="glass-static overflow-hidden">
+          {services.length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-muted mb-4">No services yet</p>
+              <button className="btn-arc" onClick={() => setShowModal(true)}>
+                Add Your First Service
+              </button>
             </div>
-          ))}
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[var(--glass-bg)]">
+                  <th className="text-left px-6 py-4 text-sm font-medium text-muted">Service</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-muted">Pricing</th>
+                  <th className="text-left px-6 py-4 text-sm font-medium text-muted">Status</th>
+                  <th className="text-right px-6 py-4 text-sm font-medium text-muted">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {services.map((service) => (
+                  <tr key={service.id} className="border-t border-[var(--glass-border)] hover:bg-[var(--glass-hover)] transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-medium">{service.name}</p>
+                      {service.description && <p className="text-sm text-subtle">{service.description}</p>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-arc">{formatPrice(service)}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => toggleActive(service)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          service.is_active 
+                            ? 'bg-[var(--success-bg)] text-[var(--success)]' 
+                            : 'bg-[var(--glass)] text-subtle'
+                        }`}
+                      >
+                        {service.is_active ? 'Active' : 'Inactive'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          className="btn-ghost text-sm"
+                          onClick={() => openEdit(service)}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          className="btn-ghost text-sm text-red-400 hover:text-red-300"
+                          onClick={() => handleDelete(service)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Service Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="stat-card">
+            <span className="stat-label">Active Services</span>
+            <span className="stat-value text-arc">{services.filter(s => s.is_active).length}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Total Services</span>
+            <span className="stat-value">{services.length}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-static p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-6">
+              {editingService ? 'Edit Service' : 'Add Service'}
+            </h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm mb-2 text-muted">Service Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="input-glass"
+                  placeholder="e.g., TV Mounting, Floor Cleaning"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm mb-2 text-muted">Description (optional)</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="input-glass min-h-[60px]"
+                  placeholder="What's included..."
+                />
+              </div>
+              
+              {/* Price × Unit */}
+              <div>
+                <label className="block text-sm mb-2 text-muted">Pricing</label>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.base_price}
+                      onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                      className="input-glass"
+                      style={{ paddingLeft: '28px' }}
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  <span className="text-muted text-lg">×</span>
+                  <input
+                    type="text"
+                    value={formData.price_unit}
+                    onChange={(e) => setFormData({ ...formData, price_unit: e.target.value })}
+                    className="input-glass flex-1"
+                    placeholder="hour, sqft, unit"
+                    required
+                  />
+                </div>
+                <p className="text-xs text-subtle mt-2">
+                  Examples: $15 × hour, $1 × sqft, $100 × tv install, $250 × job
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-5 h-5 rounded"
+                />
+                <label htmlFor="is_active" className="text-sm text-muted">Service is active</label>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={closeModal} className="btn-glass flex-1">
+                  Cancel
+                </button>
+                <button type="submit" className="btn-arc flex-1" disabled={saving}>
+                  {saving ? 'Saving...' : (editingService ? 'Update' : 'Create')}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-
-      {modalOpen && !isDemoMode && (
-        <ServiceModal
-          service={editingService}
-          businessId={businessProfile?.id}
-          onClose={handleModalClose}
-        />
-      )}
-    </div>
+    </Layout>
   );
 }
